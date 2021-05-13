@@ -154,6 +154,7 @@ public class PlayerController : MonoBehaviour
                 yield return new WaitForSeconds(0.3f);
             }
 
+            cam.fieldOfView = cameraDefaultFOV;
             pictureCanvas.gameObject.SetActive(cameraOpen);
         }
     }

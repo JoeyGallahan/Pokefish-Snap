@@ -16,18 +16,20 @@ public class Chunk : MonoBehaviour
     private ChunkManager chunkManager;
     public float[,] noise;
 
-    byte[,,] textureMap = new byte[ChunkManager.CHUNK_WIDTH, ChunkManager.CHUNK_HEIGHT, ChunkManager.CHUNK_WIDTH];
+    private byte[,,] textureMap = new byte[ChunkManager.CHUNK_WIDTH, ChunkManager.CHUNK_HEIGHT, ChunkManager.CHUNK_WIDTH];
 
-    public void Init(Vector2 chunkCoord, float[,] heightMap)
+    private bool isWaterChunk;
+
+    public void Init(Vector2 chunkCoord, float[,] heightMap, bool waterChunk = false)
     {
         coord = chunkCoord;
         meshRenderer = GetComponent<MeshRenderer>();
         meshFilter = GetComponent<MeshFilter>();
         chunkManager = GameObject.FindGameObjectWithTag("ChunkManager").GetComponent<ChunkManager>();
         noise = heightMap;
+        isWaterChunk = waterChunk;
 
         CreateChunk();
-        CreateMesh();
     }
 
     public void CreateChunk()
@@ -44,17 +46,25 @@ public class Chunk : MonoBehaviour
                 }
             }
         }
+        CreateMesh();
+    }
+
+    public void UpdateChunk(float[,] heightMap)
+    {
+        noise = heightMap;
+        ClearMeshData();
+        CreateChunk();
     }
 
     private void CreateBlock(Vector3 pos)
     {
-        textureMap[(int)pos.x, (int)pos.y, (int)pos.z] = chunkManager.GetTerrainType((int)pos.y);
+        textureMap[(int)pos.x, (int)pos.y, (int)pos.z] = chunkManager.GetTerrainType((int)pos.y, isWaterChunk);
         for (int f = 0; f < 6; f++) //faces in the order of the faces in voxel data
         {
             if (IsFaceVisible(pos,f))
             {
                 byte blockID = textureMap[(int)pos.x, (int)pos.y, (int)pos.z];
-
+                ChunkManager.TerrainType terrain = chunkManager.terrainTypes[blockID];
                 //Make vertices
                 for (int i = 0; i < 4; i++)
                 {
@@ -75,7 +85,7 @@ public class Chunk : MonoBehaviour
                 }
 
 
-                AddTexture(chunkManager.terrainTypes[blockID].GetTextureID(f));
+                AddTexture(terrain.GetTextureID(f));
 
                 //Make triangles
                 triangles.Add(vertexIndex);
@@ -109,13 +119,32 @@ public class Chunk : MonoBehaviour
         col.sharedMesh = mesh;
     }
 
+    private void ClearMeshData()
+    {
+        vertexIndex = 0;
+        vertices.Clear();
+        triangles.Clear();
+        uvs.Clear();
+        colors.Clear();
+    }
+
     private int GetHeightOfBlock(Vector3 pos, float[,] heightMap = null)
     {
         if (heightMap == null)
         {
             heightMap = noise;
         }
-        int height = Mathf.FloorToInt(ChunkManager.CHUNK_HEIGHT * heightMap[(int)pos.x, (int)pos.z]);
+
+        int height;
+
+        if (isWaterChunk)
+        {
+            height = Mathf.FloorToInt(ChunkManager.WATER_CHUNK_HEIGHT * heightMap[(int)pos.x, (int)pos.z]);
+        }
+        else
+        {
+            height = Mathf.FloorToInt(ChunkManager.CHUNK_HEIGHT * heightMap[(int)pos.x, (int)pos.z]);
+        }
         if (height == 0)
         {
             height = 1;
@@ -126,12 +155,16 @@ public class Chunk : MonoBehaviour
 
     private bool IsFaceVisible(Vector3 pos, int face)
     {
-        if (face == VoxelData.BOT) //Bottom face should never show at the moment. Will need to change if I add caves or arches later.
+        if (face == VoxelData.BOT) //Bottom face should never show at the moment except for on the water surface. Will need to change if I add caves or arches later.
         {
             return false;
         }
         else if (face != VoxelData.TOP)
         {
+            if (pos.y == 0.0f)
+            {
+                return false;
+            }
 
             if (face == VoxelData.LEFT && pos.x <= 0)
             {

@@ -8,13 +8,14 @@ public class ChunkManager : MonoBehaviour
     //Chunks
     public const int CHUNK_WIDTH = 24;
     public const int CHUNK_HEIGHT = 12;
-    public static readonly int WorldSizeInChunks = 2;
+    public const int WATER_CHUNK_HEIGHT = 4;
+    public static readonly int WorldSizeInChunks = 6;
     public static int WorldSizeInVoxels { get {return WorldSizeInChunks * CHUNK_WIDTH; } }
     public static int WorldSizeInBlocks
     {
         get { return WorldSizeInChunks * CHUNK_WIDTH; }
     }
-    private Dictionary<Vector2, Chunk> chunks = new Dictionary<Vector2, Chunk>();
+    private Dictionary<Vector2, GroundAndSurface> chunks = new Dictionary<Vector2, GroundAndSurface>();
     [SerializeField] private GameObject chunkPrefab;
     public List<TerrainType> terrainTypes;
     public Vector3 spawn;
@@ -31,7 +32,6 @@ public class ChunkManager : MonoBehaviour
     [SerializeField] [Range(0, 1)] private float persistance;
     [SerializeField] private float lacunarity;
     [SerializeField] private int seed;
-    [SerializeField] private MapDisplay display;
     [SerializeField] private Vector2 offset;
     public bool autoUpdate;
 
@@ -39,6 +39,7 @@ public class ChunkManager : MonoBehaviour
     [Range(0.95f,0)]
     public float globalLightLevel;
     public static readonly float shadowLightLevel = 0.1f;
+    public static Vector2 WaterSpeed = new Vector2(0.05f,1.0f);
 
     private void Start()
     {
@@ -48,7 +49,8 @@ public class ChunkManager : MonoBehaviour
     {
         viewerPosition = new Vector2(viewer.position.x, viewer.position.z);
         Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
-        UpdateVisibleChunks();
+        //UpdateVisibleChunks();
+        UpdateWaterChunks();
     }
 
     private void SpawnWorld()
@@ -62,6 +64,7 @@ public class ChunkManager : MonoBehaviour
         }
 
         spawn = new Vector3(WorldSizeInBlocks / 2, CHUNK_WIDTH + 2, WorldSizeInBlocks / 2);
+
         viewer.position = spawn;
     }
 
@@ -71,16 +74,37 @@ public class ChunkManager : MonoBehaviour
         chunkPos.x = coord.x * CHUNK_WIDTH;
         chunkPos.z = coord.y * CHUNK_WIDTH;
 
+        //Create a ground block chunk
         GameObject chunkOBJ = Instantiate(chunkPrefab);
         chunkOBJ.transform.parent = transform;
         chunkOBJ.transform.position = chunkPos;
         chunkOBJ.transform.localScale = Vector3.one;
         chunkOBJ.name = "Chunk " + (int)coord.x + "x" + (int)coord.y;
+        
+        GroundAndSurface gas = new GroundAndSurface();
 
+        //Initialize it and add it to the world
         Chunk chunk = chunkOBJ.AddComponent<Chunk>() as Chunk;
-        chunks.Add(coord, chunk);
-        float[,] height = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH);//Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_HEIGHT, seed, noiseScale, coord * CHUNK_WIDTH);
-        chunk.Init(coord, height);
+        gas.groundChunk = chunk;
+
+        //Create a water surface chunk
+        chunkPos.y = CHUNK_HEIGHT * 4.0f; //We want the water surface to be high up
+        GameObject waterChunkOBJ = Instantiate(chunkPrefab);
+        waterChunkOBJ.transform.parent = chunkOBJ.transform;
+        waterChunkOBJ.transform.position = chunkPos;
+        waterChunkOBJ.transform.localScale = Vector3.one;
+        waterChunkOBJ.name = "Water Chunk " + (int)coord.x + "x" + (int)coord.y;
+
+        //Initialize the water chunk and add it to the world
+        Chunk waterChunk = waterChunkOBJ.AddComponent<Chunk>() as Chunk;
+        gas.waterSurfaceChunk = waterChunk;
+        chunks.Add(coord, gas);
+
+        float[,] groundHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH);
+        float[,] surfaceHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH, true);
+
+        gas.groundChunk.Init(coord, groundHeightMap);
+        gas.waterSurfaceChunk.Init(coord, surfaceHeightMap, true);
     }
 
     private void UpdateVisibleChunks()
@@ -104,15 +128,24 @@ public class ChunkManager : MonoBehaviour
 
                 if (chunks.ContainsKey(viewedChunkIndex)) //If there is a chunk at this index
                 {
-                    chunks[viewedChunkIndex].Show();
-                    chunksVisibleLastFrame.Add(chunks[viewedChunkIndex]); //Add it to our list of currently viewable chunks
+                    chunks[viewedChunkIndex].groundChunk.Show();
+                    chunksVisibleLastFrame.Add(chunks[viewedChunkIndex].groundChunk); //Add it to our list of currently viewable chunks
                 }
                 else //If there isn't a chunk at this index
                 {
                     LoadChunk(viewedChunkIndex); //Make one and add it to our dictionary
-                    chunks[viewedChunkIndex].Show();
+                    chunks[viewedChunkIndex].groundChunk.Show();
                 }
             }
+        }
+    }
+
+    private void UpdateWaterChunks()
+    {
+        foreach (KeyValuePair<Vector2, GroundAndSurface> kvp in chunks)
+        {
+            float[,] surfaceHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, kvp.Key * CHUNK_WIDTH, true);
+            kvp.Value.waterSurfaceChunk.UpdateChunk(surfaceHeightMap);
         }
     }
 
@@ -123,7 +156,7 @@ public class ChunkManager : MonoBehaviour
         float[,] noise = new float[CHUNK_WIDTH,CHUNK_WIDTH];
         if (chunks.ContainsKey(chunkCoord))
         {
-            noise = chunks[chunkCoord].noise;
+            noise = chunks[chunkCoord].groundChunk.noise;
         }
         else
         {
@@ -132,9 +165,20 @@ public class ChunkManager : MonoBehaviour
         return noise;
     }
 
-    public byte GetTerrainType(int height)
+    public byte GetTerrainType(int height, bool isWater = false)
     {
-        float fHeight = (float)height / (float)(CHUNK_HEIGHT - 1);
+        float fHeight;
+
+        if (isWater)
+        {
+            if (height >= WATER_CHUNK_HEIGHT - 1)
+            {
+                return 6;
+            }
+            return 5;
+        }
+
+        fHeight = (float)height / (float)(CHUNK_HEIGHT - 1);
 
         for (int i = 0; i < terrainTypes.Count; i++)
         {
@@ -147,60 +191,13 @@ public class ChunkManager : MonoBehaviour
         return 0;
     }
 
-    public void DrawMapInEditor()
-    {
-        MapData mapData = GenerateMap();
-        display.DrawTexture(TextureGenerator.TextureFromColorMap(mapData.colorMap, CHUNK_WIDTH, CHUNK_WIDTH));
-    }
-
-    private MapData GenerateMap()
-    {
-        float[,] noiseMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_HEIGHT, seed, noiseScale, octaves, persistance, lacunarity, offset);
-        Color[] colorMap = ColorMap(noiseMap);
-
-        return new MapData(noiseMap, colorMap);
-    }
-
-    private Color[] ColorMap(float[,] noiseMap)
-    {
-        Color[] colorMap = new Color[CHUNK_WIDTH * CHUNK_WIDTH];
-        for (int y = 0; y < CHUNK_WIDTH; y++)
-        {
-            for (int x = 0; x < CHUNK_WIDTH; x++)
-            {
-                float curHeight = noiseMap[x, y];
-
-                for (int i = 0; i < terrainTypes.Count; i++)
-                {
-                    if (curHeight <= terrainTypes[i].height)
-                    {
-                        colorMap[y * CHUNK_WIDTH + x] = terrainTypes[i].color;
-                        break;
-                    }
-                }
-            }
-        }
-        return colorMap;
-    }
-
-    public struct MapData
-    {
-        public float[,] heightMap;
-        public Color[] colorMap;
-
-        public MapData(float[,] noise, Color[] color)
-        {
-            heightMap = noise;
-            colorMap = color;
-        }
-    }
-
     [System.Serializable]
     public class TerrainType
     {
         public string name;
         public float height;
         public Color color;
+        public float transparency = 1;
 
         [Header("Texture Values")]
         public int backFaceTexture;
@@ -230,6 +227,11 @@ public class ChunkManager : MonoBehaviour
                     return -1;          
             }
         }
+    }
 
+    struct GroundAndSurface
+    {
+        public Chunk groundChunk;
+        public Chunk waterSurfaceChunk;
     }
 }

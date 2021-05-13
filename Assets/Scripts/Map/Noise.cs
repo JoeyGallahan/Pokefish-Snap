@@ -4,44 +4,6 @@ using UnityEngine;
 
 public static class Noise
 {
-    public static float[,] GenerateNoiseMap(int width, int height, int seed, float scale, Vector2 offset)
-    {
-        System.Random rand = new System.Random(seed);
-        float[,] noiseMap = new float[width, height];
-
-        //For normalization
-        float maxNoiseHeight = float.MinValue;
-        float minNoiseHeight = float.MaxValue;
-
-        for (int x = 0; x < width; x++)
-        {
-            for (int y = 0; y < width; y++)
-            {
-                noiseMap[x, y] = Mathf.PerlinNoise(x / width * scale + offset.x, y / width * scale + offset.y);
-
-                if (noiseMap[x, y] > maxNoiseHeight)
-                {
-                    maxNoiseHeight = noiseMap[x, y];
-                }
-                else if (noiseMap[x, y] < minNoiseHeight)
-                {
-                    minNoiseHeight = noiseMap[x, y];
-                }
-            }
-        }
-
-        //Normalize the noisemap
-        for (int y = 0; y < width; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                noiseMap[x, y] = Mathf.InverseLerp(minNoiseHeight, maxNoiseHeight, noiseMap[x, y]);
-            }
-        }
-
-        return noiseMap;
-    }
-
     /*
      * MapWidth / Height the size of our noise map
      * Seed allows us to reuse the same noise map and better (pseudo)randomize new ones
@@ -51,9 +13,13 @@ public static class Noise
      * Persistance is the amplitude of octaves. It will decrease for each octave. Kind of like smoothing the sin wave down towards the center (on the y axis).
      * Offset allows us to scroll through the noise
      */
-    public static float[,] GenerateNoiseMap(int mapWidth, int mapHeight, int seed, float scale, int octaves, float persisance, float lacunarity, Vector2 offset)
+    public static float[,] GenerateNoiseMap(int mapWidth, int mapHeight, int seed, float scale, int octaves, float persisance, float lacunarity, Vector2 offset, bool isWater = false)
     {
         float[,] noiseMap = new float[mapWidth, mapHeight];
+        if (isWater)
+        {
+            seed++; //We just want the water seed to be different than the ground seed            
+        }
 
         //Allows for seeds
         System.Random rand = new System.Random(seed);
@@ -94,7 +60,14 @@ public static class Noise
                     float sampleY = (y - halfHeight) / scale * frequency + octaveOffsets[o].y;
 
                     float perlinValue = Mathf.PerlinNoise(sampleX, sampleY); // *2 - 1 allows negative values so our noise height can actually decrease
-                    noiseHeight += perlinValue * amplitude; //make the noise build off of the previous octave
+                    if (isWater)
+                    {
+                        noiseHeight += Mathf.Cos(perlinValue + ChunkManager.WaterSpeed.magnitude * Time.time) * amplitude;
+                    }
+                    else
+                    {
+                        noiseHeight += perlinValue * amplitude; //just make the noise build off of the previous octave
+                    }
 
                     amplitude *= persisance; //decrease each time
                     frequency *= lacunarity; //increase each time
@@ -108,6 +81,7 @@ public static class Noise
                 {
                     minNoiseHeight = noiseHeight;
                 }
+
 
                 noiseMap[x, y] = noiseHeight;
             }

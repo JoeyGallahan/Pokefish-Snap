@@ -15,8 +15,8 @@ RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 9
   m_Fog: 0
-  m_FogColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  m_FogMode: 3
+  m_FogColor: {r: 0.2988163, g: 0.5909217, b: 0.8018868, a: 1}
+  m_FogMode: 1
   m_FogDensity: 0.01
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
@@ -133,7 +133,6 @@ GameObject:
   m_Component:
   - component: {fileID: 213425203}
   - component: {fileID: 213425202}
-  - component: {fileID: 213425204}
   m_Layer: 0
   m_Name: MapGenerator
   m_TagString: ChunkManager
@@ -158,6 +157,7 @@ MonoBehaviour:
   - name: SeaFloor
     height: 0.05
     color: {r: 0, g: 0, b: 0, a: 0}
+    transparency: 1
     backFaceTexture: 3
     frontFaceTexture: 3
     topFaceTexture: 3
@@ -167,6 +167,7 @@ MonoBehaviour:
   - name: Bottom
     height: 0.2
     color: {r: 0.3018868, g: 0.25232458, b: 0.1723033, a: 0}
+    transparency: 1
     backFaceTexture: 2
     frontFaceTexture: 2
     topFaceTexture: 2
@@ -176,6 +177,7 @@ MonoBehaviour:
   - name: Depths
     height: 0.35
     color: {r: 0.6603774, g: 0.49987796, b: 0.14017446, a: 0}
+    transparency: 1
     backFaceTexture: 1
     frontFaceTexture: 1
     topFaceTexture: 1
@@ -185,6 +187,7 @@ MonoBehaviour:
   - name: BaseSand
     height: 0.7
     color: {r: 0.9150943, g: 0.8723328, b: 0.617257, a: 0}
+    transparency: 1
     backFaceTexture: 0
     frontFaceTexture: 0
     topFaceTexture: 0
@@ -194,12 +197,33 @@ MonoBehaviour:
   - name: Grass
     height: 1
     color: {r: 0.32003558, g: 1, b: 0, a: 0}
+    transparency: 1
     backFaceTexture: 5
     frontFaceTexture: 5
     topFaceTexture: 4
     botFaceTexture: 6
     leftFaceTexture: 5
     rightFaceTexture: 5
+  - name: WaterSurfaceEdge
+    height: 2
+    color: {r: 1, g: 1, b: 1, a: 0}
+    transparency: 0.5
+    backFaceTexture: 8
+    frontFaceTexture: 8
+    topFaceTexture: 7
+    botFaceTexture: 7
+    leftFaceTexture: 8
+    rightFaceTexture: 8
+  - name: WaterSurface
+    height: 2
+    color: {r: 0, g: 0.9073796, b: 1, a: 0}
+    transparency: 0.5
+    backFaceTexture: 7
+    frontFaceTexture: 7
+    topFaceTexture: 7
+    botFaceTexture: 7
+    leftFaceTexture: 7
+    rightFaceTexture: 7
   spawn: {x: 0, y: 0, z: 0}
   viewer: {fileID: 1393924789}
   noiseScale: 10
@@ -207,9 +231,9 @@ MonoBehaviour:
   persistance: 0.644
   lacunarity: 1
   seed: 2147483647
-  display: {fileID: 213425204}
   offset: {x: 1, y: 5}
   autoUpdate: 1
+  globalLightLevel: 0
 --- !u!4 &213425203
 Transform:
   m_ObjectHideFlags: 0
@@ -220,24 +244,10 @@ Transform:
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
-  m_Children:
-  - {fileID: 1276373189}
+  m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &213425204
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 213425201}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b72b757450f58964e9fff218c427e6b2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  textureRender: {fileID: 1276373187}
 --- !u!4 &437536344 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2152926152368031796, guid: 9c579eaccf1e9c14c8b773bf845e4887, type: 3}
@@ -741,87 +751,6 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 027da526d67f7e6498f2e7e025ece31a, type: 3}
---- !u!1 &1276373186
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1276373189}
-  - component: {fileID: 1276373188}
-  - component: {fileID: 1276373187}
-  m_Layer: 0
-  m_Name: Plane
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!23 &1276373187
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1276373186}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 1
-  m_DynamicOccludee: 1
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 2100000, guid: 3bc24efe81da4f841a650ee765163519, type: 2}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_AdditionalVertexStreams: {fileID: 0}
---- !u!33 &1276373188
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1276373186}
-  m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
---- !u!4 &1276373189
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1276373186}
-  m_LocalRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 20, y: 1, z: 20}
-  m_Children: []
-  m_Father: {fileID: 213425203}
-  m_RootOrder: 0
-  m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
 --- !u!4 &1284027764 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2152926152368031796, guid: 9c579eaccf1e9c14c8b773bf845e4887, type: 3}
