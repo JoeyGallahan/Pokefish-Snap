@@ -12,14 +12,17 @@ public static class Noise
      * Lacunarity is the frequency of octaves. It will increase for each octave. Kind of like making a more wavy sin wave. 
      * Persistance is the amplitude of octaves. It will decrease for each octave. Kind of like smoothing the sin wave down towards the center (on the y axis).
      * Offset allows us to scroll through the noise
+     * AnimationCurve lets us make smoother transitions between heights, more frequent valleys, steeper slopes, etc etc. Its just a normalized curve.
+     * IsWater because the water blocks should change over time, but the ground blocks should not
      */
-    public static float[,] GenerateNoiseMap(int mapWidth, int mapHeight, int seed, float scale, int octaves, float persisance, float lacunarity, Vector2 offset, bool isWater = false)
+    public static float[,] GenerateNoiseMap(int mapWidth, int mapHeight, int seed, float scale, int octaves, float persisance, float lacunarity, Vector2 offset, AnimationCurve heightCurve, bool isWater = false)
     {
-        float[,] noiseMap = new float[mapWidth, mapHeight];
         if (isWater)
         {
             seed++; //We just want the water seed to be different than the ground seed            
         }
+
+        float[,] noiseMap = new float[mapWidth, mapHeight];
 
         //Allows for seeds
         System.Random rand = new System.Random(seed);
@@ -59,7 +62,8 @@ public static class Noise
                     float sampleX = (x - halfWidth) / scale * frequency + octaveOffsets[o].x;
                     float sampleY = (y - halfHeight) / scale * frequency + octaveOffsets[o].y;
 
-                    float perlinValue = Mathf.PerlinNoise(sampleX, sampleY); // *2 - 1 allows negative values so our noise height can actually decrease
+                    float perlinValue = Mathf.PerlinNoise(sampleX, sampleY);
+
                     if (isWater)
                     {
                         noiseHeight += Mathf.Cos(perlinValue + ChunkManager.WaterSpeed.magnitude * Time.time) * amplitude;
@@ -82,7 +86,6 @@ public static class Noise
                     minNoiseHeight = noiseHeight;
                 }
 
-
                 noiseMap[x, y] = noiseHeight;
             }
         }
@@ -92,9 +95,10 @@ public static class Noise
         {
             for (int x = 0; x < mapWidth; x++)
             {
-                noiseMap[x, y] = Mathf.InverseLerp(minNoiseHeight, maxNoiseHeight, noiseMap[x, y]);
+                noiseMap[x, y] = heightCurve.Evaluate(Mathf.InverseLerp(minNoiseHeight, maxNoiseHeight, noiseMap[x, y]));
             }
         }
         return noiseMap;
     }
+
 }

@@ -6,10 +6,10 @@ using System.Threading;
 public class ChunkManager : MonoBehaviour
 {
     //Chunks
-    public const int CHUNK_WIDTH = 24;
-    public const int CHUNK_HEIGHT = 12;
-    public const int WATER_CHUNK_HEIGHT = 4;
-    public static readonly int WorldSizeInChunks = 6;
+    public const int CHUNK_WIDTH = 32;
+    public const int CHUNK_HEIGHT = 24;
+    public const int WATER_CHUNK_HEIGHT = 6;
+    public static readonly int WorldSizeInChunks = 2;
     public static int WorldSizeInVoxels { get {return WorldSizeInChunks * CHUNK_WIDTH; } }
     public static int WorldSizeInBlocks
     {
@@ -23,7 +23,7 @@ public class ChunkManager : MonoBehaviour
     //Chunk Visibility
     List<Chunk> chunksVisibleLastFrame = new List<Chunk>();
     public static Vector2 viewerPosition;
-    public static readonly int ViewDistanceInChunks = 6;
+    public static readonly int ViewDistanceInChunks = 4;
     [SerializeField] private Transform viewer;
 
     //Noise
@@ -33,28 +33,37 @@ public class ChunkManager : MonoBehaviour
     [SerializeField] private float lacunarity;
     [SerializeField] private int seed;
     [SerializeField] private Vector2 offset;
-    public bool autoUpdate;
+    [SerializeField] private AnimationCurve heightCurve;
+    
+    public AnimationCurve HeightCurve
+    {
+        get => heightCurve;
+    }
 
     //Other
     [Range(0.95f,0)]
     public float globalLightLevel;
     public static readonly float shadowLightLevel = 0.1f;
-    public static Vector2 WaterSpeed = new Vector2(0.05f,1.0f);
+    public static Vector2 WaterSpeed = new Vector2(0.5f,0.5f);
 
     private void Start()
     {
+        Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
         SpawnWorld();
     }
     private void Update()
     {
         viewerPosition = new Vector2(viewer.position.x, viewer.position.z);
-        Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
-        //UpdateVisibleChunks();
-        UpdateWaterChunks();
+        UpdateVisibleChunks();
+    }
+    private void LateUpdate()
+    {
+        //UpdateWaterChunks();
     }
 
     private void SpawnWorld()
     {
+        Debug.Log("Initializing chunks...");
         for (int x = WorldSizeInChunks / 2 - ViewDistanceInChunks / 2; x < WorldSizeInChunks / 2 + ViewDistanceInChunks / 2; x++)
         {
             for (int z = WorldSizeInChunks / 2 - ViewDistanceInChunks / 2; z < WorldSizeInChunks / 2 + ViewDistanceInChunks / 2; z++)
@@ -64,8 +73,31 @@ public class ChunkManager : MonoBehaviour
         }
 
         spawn = new Vector3(WorldSizeInBlocks / 2, CHUNK_WIDTH + 2, WorldSizeInBlocks / 2);
-
         viewer.position = spawn;
+
+        Debug.Log("Filling in chunk data...");
+        foreach (KeyValuePair<Vector2, GroundAndSurface> kvp in chunks)
+        {
+            kvp.Value.groundChunk.CreateChunk();
+            kvp.Value.waterSurfaceChunk.CreateChunk();
+        }
+
+        Debug.Log("Creating chunk meshes...");
+        foreach (KeyValuePair<Vector2, GroundAndSurface> kvp in chunks)
+        {
+            kvp.Value.groundChunk.CreateMesh();
+            kvp.Value.waterSurfaceChunk.CreateMesh();
+        }
+        
+        /*
+        for (int x = 0; x < 2; x++)
+        {
+            for (int z = 0; z < 2; z++)
+            {
+                LoadChunk(new Vector2(x, z));
+            }
+        }
+        */
     }
 
     private void LoadChunk(Vector2 coord)
@@ -100,8 +132,8 @@ public class ChunkManager : MonoBehaviour
         gas.waterSurfaceChunk = waterChunk;
         chunks.Add(coord, gas);
 
-        float[,] groundHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH);
-        float[,] surfaceHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH, true);
+        float[,] groundHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH, heightCurve);
+        float[,] surfaceHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH, heightCurve, true);
 
         gas.groundChunk.Init(coord, groundHeightMap);
         gas.waterSurfaceChunk.Init(coord, surfaceHeightMap, true);
@@ -119,6 +151,7 @@ public class ChunkManager : MonoBehaviour
         int curChunkIndexX = Mathf.RoundToInt(viewerPosition.x / CHUNK_WIDTH);
         int curChunkIndexY = Mathf.RoundToInt(viewerPosition.y / CHUNK_WIDTH);
 
+        List<Vector2> newChunks = new List<Vector2>();
         //Go through and each possible chunk around the current one
         for (int y = -ViewDistanceInChunks; y < ViewDistanceInChunks; y++)
         {
@@ -133,10 +166,29 @@ public class ChunkManager : MonoBehaviour
                 }
                 else //If there isn't a chunk at this index
                 {
-                    LoadChunk(viewedChunkIndex); //Make one and add it to our dictionary
-                    chunks[viewedChunkIndex].groundChunk.Show();
+                    newChunks.Add(viewedChunkIndex);
                 }
             }
+        }
+
+        for (int i = 0; i < newChunks.Count; i++)
+        {
+            //Debug.Log("Initializing new chunk: " + newChunks[i] + "...");
+            LoadChunk(newChunks[i]);
+        }
+
+        for (int i = 0; i < newChunks.Count; i++)
+        {
+            //Debug.Log("Generating new chunk data: " + newChunks[i] + "...");
+            chunks[newChunks[i]].groundChunk.CreateChunk();
+            chunks[newChunks[i]].waterSurfaceChunk.CreateChunk();
+        }
+
+        for (int i = 0; i < newChunks.Count; i++)
+        {
+            //Debug.Log("Creating mesh for new chunk: " + newChunks[i] + "...");
+            chunks[newChunks[i]].groundChunk.CreateMesh();
+            chunks[newChunks[i]].waterSurfaceChunk.CreateMesh();
         }
     }
 
@@ -144,23 +196,31 @@ public class ChunkManager : MonoBehaviour
     {
         foreach (KeyValuePair<Vector2, GroundAndSurface> kvp in chunks)
         {
-            float[,] surfaceHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, kvp.Key * CHUNK_WIDTH, true);
+            float[,] surfaceHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, kvp.Key * CHUNK_WIDTH, heightCurve, true);
             kvp.Value.waterSurfaceChunk.UpdateChunk(surfaceHeightMap);
+        }
+        foreach (KeyValuePair<Vector2, GroundAndSurface> kvp in chunks)
+        {
+            kvp.Value.waterSurfaceChunk.CreateMesh();
         }
     }
 
-    public float[,] GetChunk(Vector3 coord, Vector3 dir)
+    public float[,] GetChunkHeightMap(Vector3 coord, Vector3 dir, bool isWater = false)
     {
         Vector3 chunk = coord + dir;
+        chunk.y = 0.0f;
         Vector2 chunkCoord = new Vector2(chunk.x, chunk.z);
-        float[,] noise = new float[CHUNK_WIDTH,CHUNK_WIDTH];
+        float[,] noise = new float[CHUNK_WIDTH, CHUNK_WIDTH];
         if (chunks.ContainsKey(chunkCoord))
         {
-            noise = chunks[chunkCoord].groundChunk.noise;
-        }
-        else
-        {
-            noise = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, chunk * CHUNK_WIDTH);
+            if (isWater)
+            {
+                noise = chunks[chunkCoord].waterSurfaceChunk.noise;
+            }
+            else
+            {
+                noise = chunks[chunkCoord].groundChunk.noise;
+            }
         }
         return noise;
     }

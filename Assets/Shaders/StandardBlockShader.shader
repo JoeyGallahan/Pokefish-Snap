@@ -7,11 +7,9 @@ Shader"Voxel/Blocks"
 
 	SubShader
 	{
-		Tags{"Queue"="Transparent" "IgnoreProjector"="True" "RenderType"="Transparent"}
+		Tags{"Queue"="AlphaTest" "IgnoreProjector"="True" "RenderType"="Transparent"}
 		LOD 100
 		Lighting OFF
-		Blend SrcAlpha OneMinusSrcAlpha
-		ZWrite Off
 
 		Pass
 		{
@@ -53,7 +51,7 @@ Shader"Voxel/Blocks"
 				fixed4 fragFunction (v2f i) : SV_Target
 				{
 					fixed4 col = tex2D (_MainTex, i.uv);
-					float blockLightLevel = clamp(GlobalLightLevel + i.color.a, 0, 1);
+					float blockLightLevel = clamp(GlobalLightLevel + i.color, 0, 1);
 
 					col = lerp(col, float4(0, 0, 0, i.color.a), blockLightLevel);
 

@@ -227,12 +227,53 @@ MonoBehaviour:
   spawn: {x: 0, y: 0, z: 0}
   viewer: {fileID: 1393924789}
   noiseScale: 10
-  octaves: 13
-  persistance: 0.644
+  octaves: 4
+  persistance: 1
   lacunarity: 1
   seed: 2147483647
   offset: {x: 1, y: 5}
-  autoUpdate: 1
+  heightCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.5908316
+      value: 0.33349493
+      inSlope: 0.38440508
+      outSlope: 0.38440508
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.25636762
+    - serializedVersion: 3
+      time: 0.7940179
+      value: 0.80993414
+      inSlope: 1.3774226
+      outSlope: 1.3774226
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.51390934
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 2
+      outSlope: 2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   globalLightLevel: 0
 --- !u!4 &213425203
 Transform:
