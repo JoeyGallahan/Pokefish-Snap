@@ -4,6 +4,50 @@ using UnityEngine;
 
 public static class Noise
 {
+    public static float[,] GenerateWaterMap(int mapWidth, int mapHeight, int seed, float scale, Vector2 offset)
+    {
+        float[,] waterMap = new float[mapWidth, mapHeight];
+        System.Random rand = new System.Random(seed);
+        
+        //For normalization
+        float maxNoiseHeight = float.MinValue;
+        float minNoiseHeight = float.MaxValue;
+
+        //Allows us to zoom in/out in the center of the map
+        float halfWidth = mapWidth / 2.0f;
+        float halfHeight = mapHeight / 2.0f;
+
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                float sampleX = (x - halfWidth) / scale + offset.x;
+                float sampleY = (y - halfHeight) / scale + offset.y;
+
+                float perlinValue = Mathf.PerlinNoise(sampleX, sampleY);
+                waterMap[x, y] = Mathf.Cos(perlinValue + ChunkManager.WaterSpeed.magnitude * Time.time);
+
+                if (waterMap[x, y] > maxNoiseHeight)
+                {
+                    maxNoiseHeight = waterMap[x, y];
+                }
+                else if (waterMap[x, y] < minNoiseHeight)
+                {
+                    minNoiseHeight = waterMap[x, y];
+                }
+            }
+        }
+        //Normalize the noisemap
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                waterMap[x, y] = Mathf.InverseLerp(minNoiseHeight, maxNoiseHeight, waterMap[x, y]);
+            }
+        }
+
+        return waterMap;
+    }
     /*
      * MapWidth / Height the size of our noise map
      * Seed allows us to reuse the same noise map and better (pseudo)randomize new ones
@@ -64,14 +108,7 @@ public static class Noise
 
                     float perlinValue = Mathf.PerlinNoise(sampleX, sampleY);
 
-                    if (isWater)
-                    {
-                        noiseHeight += Mathf.Cos(perlinValue + ChunkManager.WaterSpeed.magnitude * Time.time) * amplitude;
-                    }
-                    else
-                    {
-                        noiseHeight += perlinValue * amplitude; //just make the noise build off of the previous octave
-                    }
+                    noiseHeight += perlinValue * amplitude; //just make the noise build off of the previous octave
 
                     amplitude *= persisance; //decrease each time
                     frequency *= lacunarity; //increase each time

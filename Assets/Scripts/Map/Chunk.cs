@@ -24,14 +24,18 @@ public class Chunk : MonoBehaviour
 
     public void Init(Vector2 chunkCoord, float[,] heightMap, bool waterChunk = false)
     {
-        coord = chunkCoord;
         meshRenderer = GetComponent<MeshRenderer>();
         meshFilter = GetComponent<MeshFilter>();
         chunkManager = GameObject.FindGameObjectWithTag("ChunkManager").GetComponent<ChunkManager>();
+        if (!isWaterChunk)
+        col = gameObject.AddComponent<MeshCollider>();
+        mesh = new Mesh();
+
+        coord = chunkCoord;
         noise = heightMap;
         isWaterChunk = waterChunk;
-        mesh = new Mesh();
-        col = GetComponent<MeshCollider>();
+        col.convex = true;
+        col.isTrigger = true;
     }
 
     public void CreateChunk()
@@ -87,19 +91,15 @@ public class Chunk : MonoBehaviour
             vertices.Add(pos + VoxelData.voxelVerts[VoxelData.voxelTris[face, i]]);
 
             //Shading
-            float lightLevel = ChunkManager.shadowLightLevel;
-            colors.Add(new Color(0.0f, 0.0f, 0.0f, lightLevel));
 
-            /*
-            int shadeStacks = IsInShade(pos);
-            float lightLevel = ChunkManager.shadowLightLevel * shadeStacks;
-            if (f == VoxelData.TOP)
+            //int shadeStacks = IsInShade(pos);
+            float lightLevel = ChunkManager.shadowLightLevel;
+            if (face == VoxelData.TOP)
             {
                 lightLevel *= 1.25f;
             }
 
             colors.Add(new Color(0.0f, 0.0f, 0.0f, lightLevel));
-            */
         }
     }
 
@@ -120,8 +120,12 @@ public class Chunk : MonoBehaviour
     //Puts all our data together into one mesh that can be rendered
     public void CreateMesh()
     {
+        if (isWaterChunk)
+        {
+            mesh.MarkDynamic();
+        }
+
         //Initialize a mesh with all the vertices, triangles, and UVs we just made
-        mesh = new Mesh();
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
         mesh.uv = uvs.ToArray();
@@ -133,13 +137,20 @@ public class Chunk : MonoBehaviour
         meshFilter.mesh = mesh;
 
         //Set up our mesh collider so our player and other gameobjects can collide with it
-        col.sharedMesh = mesh;
+        if (!isWaterChunk)
+            col.sharedMesh = mesh;
     }
 
     //Clear out all the mesh data
     private void ClearMeshData()
     {
         vertexIndex = 0;
+        
+        mesh.triangles = null;
+        mesh.vertices = null;
+        mesh.uv = null;
+        mesh.colors = null;
+
         vertices.Clear();
         triangles.Clear();
         uvs.Clear();
@@ -188,9 +199,8 @@ public class Chunk : MonoBehaviour
             }
 
             //Handles drawing faces between chunks
-            Vector3 posV3 = new Vector3(pos.x, 0.0f, pos.z);
             Vector3 coordV3 = new Vector3(coord.x, 0, coord.y);
-            Vector3 otherChunkNeighbor = posV3;
+            Vector3 otherChunkNeighbor = pos;
             bool checkChunk = false;
 
             if (face == VoxelData.LEFT && pos.x == 0) //If this is the left face on the Left-most side of a chunk
@@ -239,7 +249,7 @@ public class Chunk : MonoBehaviour
 
         return false;
     }
-    /*
+
     private int IsInShade(Vector3 pos)
     {
         int shadeStacks = 0;
@@ -253,44 +263,55 @@ public class Chunk : MonoBehaviour
                 -1,-1
             };
 
+            //Handles drawing faces between chunks
+            Vector3 coordV3 = new Vector3(coord.x, 0, coord.y);
             Vector3 otherChunkNeighbor = pos;
-            float[,] heightMap = null;
+            bool checkChunk = false;
 
-            if (pos.x == 0) //Left-most side
+            if (pos.x == 0)
             {
-                heightMap = chunkManager.GetChunk(coord, VoxelData.voxelFaceChecks[VoxelData.LEFT]);
+                checkChunk = true;
                 otherChunkNeighbor.x = ChunkManager.CHUNK_WIDTH - 1;
                 ignoreSide[0] = VoxelData.LEFT;
             }
-            else if (pos.x >= ChunkManager.CHUNK_WIDTH - 1) //Right-most side
+            else if (pos.x >= ChunkManager.CHUNK_WIDTH - 1)
             {
-                heightMap = chunkManager.GetChunk(coord, VoxelData.voxelFaceChecks[VoxelData.RIGHT]);
+                checkChunk = true;
                 otherChunkNeighbor.x = 0.0f;
                 ignoreSide[0] = VoxelData.RIGHT;
             }
-            if (pos.z >= ChunkManager.CHUNK_WIDTH - 1) //Front-most side
+            if (pos.z >= ChunkManager.CHUNK_WIDTH - 1)
             {
-                heightMap = chunkManager.GetChunk(coord, VoxelData.voxelFaceChecks[VoxelData.FRONT]);
+                checkChunk = true;
                 otherChunkNeighbor.z = 0.0f;
                 ignoreSide[1] = VoxelData.FRONT;
-
             }
-            else if (pos.z == 0) //Back-most side
+            else if (pos.z == 0)
             {
-                heightMap = chunkManager.GetChunk(coord, VoxelData.voxelFaceChecks[VoxelData.BACK]);
+                checkChunk = true;
                 otherChunkNeighbor.z = ChunkManager.CHUNK_WIDTH - 1;
                 ignoreSide[1] = VoxelData.BACK;
             }
 
-            if (heightMap != null) //If we need to look at a neighboring chunk
+            /*
+            //If we need to look at a neighboring chunk
+            if (checkChunk)
             {
-                int heightOfNeighbor = GetHeightOfStack(otherChunkNeighbor, heightMap); //Get the height of the neighboring block we need
-                if (heightOfNeighbor > heightOfPos)
+                for (int i = 0; i < 2; i++)
                 {
-                    shadeStacks++;
+                    if (ignoreSide[i] != -1)
+                    {
+                        int heightOfNeighbor = GetHeightOfStack(otherChunkNeighbor, chunkManager.GetChunkHeightMap(coordV3, VoxelData.voxelFaceChecks[ignoreSide[i]], isWaterChunk)); //Get the height of the neighboring block we need
+
+                        if (heightOfNeighbor - 1 > pos.y)
+                        {
+                            shadeStacks++;
+                        }
+                    }
                 }
             }
-
+            */
+            //Debug.Log("Pos: " + pos + "ig1:" + ignoreSide[0] + " ig2: " + ignoreSide[1]);
             //If there is a block on any side 1 block up, this block is in shade
             for (int i = 0; i < VoxelData.voxelFaceChecks.Length; i++)
             {
@@ -303,7 +324,7 @@ public class Chunk : MonoBehaviour
 
         return shadeStacks;
     }
-    */
+
     private void PopulateTextureMap()
     {
         for (int x = 0; x < ChunkManager.CHUNK_WIDTH; x++)
