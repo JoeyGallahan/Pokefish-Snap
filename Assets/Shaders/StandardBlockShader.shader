@@ -2,7 +2,7 @@ Shader"Voxel/Blocks"
 {
 	Properties
 	{
-		_MainTex("Blcok Texture Atlas", 2D) = "white"{}
+		_MainTex("Block Texture Atlas", 2D) = "white"{}
 	}
 
 	SubShader
@@ -52,6 +52,7 @@ Shader"Voxel/Blocks"
 				{
 					fixed4 col = tex2D (_MainTex, i.uv);
 					float blockLightLevel = clamp(GlobalLightLevel + i.color, 0, 1);
+					clip(col.a - 1);
 
 					col = lerp(col, float4(0, 0, 0, i.color.a), blockLightLevel);
 

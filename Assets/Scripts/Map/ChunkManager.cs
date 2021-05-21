@@ -7,9 +7,9 @@ public class ChunkManager : MonoBehaviour
 {
     //Chunks
     public const int CHUNK_WIDTH = 32;
-    public const int CHUNK_HEIGHT = 24;
+    public const int CHUNK_HEIGHT = 14;
     public const int WATER_CHUNK_HEIGHT = 6;
-    public static readonly int WorldSizeInChunks = 2;
+    public static readonly int WorldSizeInChunks = 12;
     public static int WorldSizeInVoxels { get {return WorldSizeInChunks * CHUNK_WIDTH; } }
     public static int WorldSizeInBlocks
     {
@@ -23,8 +23,9 @@ public class ChunkManager : MonoBehaviour
     //Chunk Visibility
     List<Chunk> chunksVisibleLastFrame = new List<Chunk>();
     public static Vector2 viewerPosition;
-    public static readonly int ViewDistanceInChunks = 4;
+    public static readonly int ViewDistanceInChunks = 12;
     [SerializeField] private Transform viewer;
+    private Vector2 playerChunkCoords;
 
     //Noise
     [SerializeField] private float noiseScale;
@@ -55,12 +56,8 @@ public class ChunkManager : MonoBehaviour
     {
         viewerPosition = new Vector2(viewer.position.x, viewer.position.z);
         UpdateVisibleChunks();
-    }
-    private void LateUpdate()
-    {
         //UpdateWaterChunks();
     }
-
     private void SpawnWorld()
     {
         Debug.Log("Initializing chunks...");
@@ -133,7 +130,7 @@ public class ChunkManager : MonoBehaviour
         chunks.Add(coord, gas);
 
         float[,] groundHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH, heightCurve);
-        float[,] surfaceHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH, heightCurve, true);
+        float[,] surfaceHeightMap = Noise.GenerateWaterMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, coord * CHUNK_WIDTH);//Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH, heightCurve, true);
 
         gas.groundChunk.Init(coord, groundHeightMap);
         gas.waterSurfaceChunk.Init(coord, surfaceHeightMap, true);
@@ -141,64 +138,71 @@ public class ChunkManager : MonoBehaviour
 
     private void UpdateVisibleChunks()
     {
-        //Disable all chunks that were visible last frame (they'll be reenabled later if they should be viewed this frame)
-        for (int i = 0; i < chunksVisibleLastFrame.Count; i++)
-        {
-            chunksVisibleLastFrame[i].Hide();
-        }
-
         //Get the index of the current chunk the viewer is on
         int curChunkIndexX = Mathf.RoundToInt(viewerPosition.x / CHUNK_WIDTH);
         int curChunkIndexY = Mathf.RoundToInt(viewerPosition.y / CHUNK_WIDTH);
 
-        List<Vector2> newChunks = new List<Vector2>();
-        //Go through and each possible chunk around the current one
-        for (int y = -ViewDistanceInChunks; y < ViewDistanceInChunks; y++)
-        {
-            for (int x = -ViewDistanceInChunks; x < ViewDistanceInChunks; x++)
-            {
-                Vector2 viewedChunkIndex = new Vector2(curChunkIndexX + x, curChunkIndexY + y);
+        Vector2 curChunk = new Vector2(curChunkIndexX, curChunkIndexY);
 
-                if (chunks.ContainsKey(viewedChunkIndex)) //If there is a chunk at this index
+        if (curChunk != playerChunkCoords)
+        {
+            playerChunkCoords = curChunk;
+
+            //Disable all chunks that were visible last frame (they'll be reenabled later if they should be viewed this frame)
+            for (int i = 0; i < chunksVisibleLastFrame.Count; i++)
+            {
+                chunksVisibleLastFrame[i].Hide();
+            }
+
+            chunksVisibleLastFrame.Clear();
+
+            List<Vector2> newChunks = new List<Vector2>();
+            //Go through and each possible chunk around the current one
+            for (int y = -ViewDistanceInChunks; y < ViewDistanceInChunks; y++)
+            {
+                for (int x = -ViewDistanceInChunks; x < ViewDistanceInChunks; x++)
                 {
-                    chunks[viewedChunkIndex].groundChunk.Show();
-                    chunksVisibleLastFrame.Add(chunks[viewedChunkIndex].groundChunk); //Add it to our list of currently viewable chunks
-                }
-                else //If there isn't a chunk at this index
-                {
-                    newChunks.Add(viewedChunkIndex);
+                    Vector2 viewedChunkIndex = new Vector2(curChunkIndexX + x, curChunkIndexY + y);
+
+                    if (chunks.ContainsKey(viewedChunkIndex)) //If there is a chunk at this index
+                    {
+                        chunks[viewedChunkIndex].groundChunk.Show();
+                        chunksVisibleLastFrame.Add(chunks[viewedChunkIndex].groundChunk); //Add it to our list of currently viewable chunks
+                    }
+                    else //If there isn't a chunk at this index
+                    {
+                        newChunks.Add(viewedChunkIndex);
+                    }
                 }
             }
-        }
 
-        for (int i = 0; i < newChunks.Count; i++)
-        {
-            //Debug.Log("Initializing new chunk: " + newChunks[i] + "...");
-            LoadChunk(newChunks[i]);
-        }
+            for (int i = 0; i < newChunks.Count; i++)
+            {
+                LoadChunk(newChunks[i]);
+                chunksVisibleLastFrame.Add(chunks[newChunks[i]].groundChunk); //Add it to our list of currently viewable chunks
+            }
 
-        for (int i = 0; i < newChunks.Count; i++)
-        {
-            //Debug.Log("Generating new chunk data: " + newChunks[i] + "...");
-            chunks[newChunks[i]].groundChunk.CreateChunk();
-            chunks[newChunks[i]].waterSurfaceChunk.CreateChunk();
-        }
+            for (int i = 0; i < newChunks.Count; i++)
+            {
+                chunks[newChunks[i]].groundChunk.CreateChunk();
+                chunks[newChunks[i]].waterSurfaceChunk.CreateChunk();
+            }
 
-        for (int i = 0; i < newChunks.Count; i++)
-        {
-            //Debug.Log("Creating mesh for new chunk: " + newChunks[i] + "...");
-            chunks[newChunks[i]].groundChunk.CreateMesh();
-            chunks[newChunks[i]].waterSurfaceChunk.CreateMesh();
-        }
+            for (int i = 0; i < newChunks.Count; i++)
+            {
+                chunks[newChunks[i]].groundChunk.CreateMesh();
+                chunks[newChunks[i]].waterSurfaceChunk.CreateMesh();
+            }
+        }        
     }
 
     private void UpdateWaterChunks()
     {
         foreach (KeyValuePair<Vector2, GroundAndSurface> kvp in chunks)
         {
-            float[,] surfaceHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, kvp.Key * CHUNK_WIDTH, heightCurve, true);
-            kvp.Value.waterSurfaceChunk.UpdateChunk(surfaceHeightMap);
+            kvp.Value.waterSurfaceChunk.UpdateChunk(Noise.GenerateWaterMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, kvp.Key * CHUNK_WIDTH));
         }
+        
         foreach (KeyValuePair<Vector2, GroundAndSurface> kvp in chunks)
         {
             kvp.Value.waterSurfaceChunk.CreateMesh();
