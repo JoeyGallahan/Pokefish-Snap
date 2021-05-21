@@ -19,7 +19,6 @@ public class PlayerController : MonoBehaviour
 
     [SerializeField] private Canvas pictureCanvas;
     [SerializeField] private Slider cameraCooldownSlider;
-    [SerializeField] private Canvas maskCanvas;
 
     [SerializeField] private PictureCamera pictureCamera;
 
@@ -157,7 +156,6 @@ public class PlayerController : MonoBehaviour
 
             cam.fieldOfView = cameraDefaultFOV;
             pictureCanvas.gameObject.SetActive(cameraOpen);
-            maskCanvas.gameObject.SetActive(!cameraOpen);
         }
     }
 }
