@@ -6,8 +6,8 @@ using System.Threading;
 public class ChunkManager : MonoBehaviour
 {
     //Chunks
-    public const int CHUNK_WIDTH = 32;
-    public const int CHUNK_HEIGHT = 14;
+    public const int CHUNK_WIDTH = 64;
+    public const int CHUNK_HEIGHT = 32;
     public const int WATER_CHUNK_HEIGHT = 6;
     public static readonly int WorldSizeInChunks = 12;
     public static int WorldSizeInVoxels { get {return WorldSizeInChunks * CHUNK_WIDTH; } }
