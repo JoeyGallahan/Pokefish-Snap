@@ -1,24 +1,22 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 using System.Threading;
 
 public class ChunkManager : MonoBehaviour
 {
     //Chunks
-    public const int CHUNK_WIDTH = 64;
+    public const int CHUNK_WIDTH = 32;
     public const int CHUNK_HEIGHT = 32;
-    public const int WATER_CHUNK_HEIGHT = 6;
-    public static readonly int WorldSizeInChunks = 12;
-    public static int WorldSizeInVoxels { get {return WorldSizeInChunks * CHUNK_WIDTH; } }
-    public static int WorldSizeInBlocks
-    {
-        get { return WorldSizeInChunks * CHUNK_WIDTH; }
-    }
-    private Dictionary<Vector2, GroundAndSurface> chunks = new Dictionary<Vector2, GroundAndSurface>();
+    public const int WATER_CHUNK_HEIGHT = 1;
+    private Dictionary<Vector2, Chunk> chunks = new Dictionary<Vector2, Chunk>();
+    private Dictionary<Vector2, Chunk> waterChunks = new Dictionary<Vector2, Chunk>();
     [SerializeField] private GameObject chunkPrefab;
     public List<TerrainType> terrainTypes;
     public Vector3 spawn;
+    [SerializeField] private Material terrainMaterial;
+    [SerializeField] private Material waterMaterial;
 
     //Chunk Visibility
     List<Chunk> chunksVisibleLastFrame = new List<Chunk>();
@@ -35,7 +33,11 @@ public class ChunkManager : MonoBehaviour
     [SerializeField] private int seed;
     [SerializeField] private Vector2 offset;
     [SerializeField] private AnimationCurve heightCurve;
-    
+    private float curTime = 0.0f;
+
+    Queue<MapThreadInfo<ChunkData>> chunkThreadQueue = new Queue<MapThreadInfo<ChunkData>>();
+    Queue<MapThreadInfo<MeshData>> meshThreadQueue = new Queue<MapThreadInfo<MeshData>>();
+
     public AnimationCurve HeightCurve
     {
         get => heightCurve;
@@ -50,93 +52,115 @@ public class ChunkManager : MonoBehaviour
     private void Start()
     {
         Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
-        SpawnWorld();
+
+        UpdateVisibleChunks(true);
     }
     private void Update()
     {
         viewerPosition = new Vector2(viewer.position.x, viewer.position.z);
+        curTime = Time.time;
+
+        if (chunkThreadQueue.Count > 0)
+        {
+            for (int i = 0; i < chunkThreadQueue.Count; i++)
+            {
+                MapThreadInfo<ChunkData> threadInfo = chunkThreadQueue.Dequeue();
+                threadInfo.callback(threadInfo.param);
+            }
+        }
+
+        if (meshThreadQueue.Count > 0)
+        {
+            for (int i = 0; i < meshThreadQueue.Count; i++)
+            {
+                MapThreadInfo<MeshData> threadInfo = meshThreadQueue.Dequeue();
+                threadInfo.callback(threadInfo.param);
+            }
+        }
+
         UpdateVisibleChunks();
         //UpdateWaterChunks();
     }
-    private void SpawnWorld()
+
+    public void RequestChunkData(Action<ChunkData> callback, bool isWater = false)
     {
-        Debug.Log("Initializing chunks...");
-        for (int x = WorldSizeInChunks / 2 - ViewDistanceInChunks / 2; x < WorldSizeInChunks / 2 + ViewDistanceInChunks / 2; x++)
+        ThreadStart threadStart = delegate
         {
-            for (int z = WorldSizeInChunks / 2 - ViewDistanceInChunks / 2; z < WorldSizeInChunks / 2 + ViewDistanceInChunks / 2; z++)
-            {
-                LoadChunk(new Vector2(x, z));
-            }
-        }
-
-        spawn = new Vector3(WorldSizeInBlocks / 2, CHUNK_WIDTH + 2, WorldSizeInBlocks / 2);
-        viewer.position = spawn;
-
-        Debug.Log("Filling in chunk data...");
-        foreach (KeyValuePair<Vector2, GroundAndSurface> kvp in chunks)
-        {
-            kvp.Value.groundChunk.CreateChunk();
-            kvp.Value.waterSurfaceChunk.CreateChunk();
-        }
-
-        Debug.Log("Creating chunk meshes...");
-        foreach (KeyValuePair<Vector2, GroundAndSurface> kvp in chunks)
-        {
-            kvp.Value.groundChunk.CreateMesh();
-            kvp.Value.waterSurfaceChunk.CreateMesh();
-        }
-        
-        /*
-        for (int x = 0; x < 2; x++)
-        {
-            for (int z = 0; z < 2; z++)
-            {
-                LoadChunk(new Vector2(x, z));
-            }
-        }
-        */
+            ChunkDataThread(callback, isWater);
+        };
+        new Thread(threadStart).Start();
     }
 
-    private void LoadChunk(Vector2 coord)
+    private void ChunkDataThread(Action<ChunkData> callback, bool isWater = false)
     {
-        Vector3 chunkPos = Vector3.zero;
-        chunkPos.x = coord.x * CHUNK_WIDTH;
-        chunkPos.z = coord.y * CHUNK_WIDTH;
+        ChunkData chunkData = GenerateChunkData(isWater);
+        PopulateTextureMap(chunkData, isWater);
 
-        //Create a ground block chunk
-        GameObject chunkOBJ = Instantiate(chunkPrefab);
-        chunkOBJ.transform.parent = transform;
-        chunkOBJ.transform.position = chunkPos;
-        chunkOBJ.transform.localScale = Vector3.one;
-        chunkOBJ.name = "Chunk " + (int)coord.x + "x" + (int)coord.y;
-        
-        GroundAndSurface gas = new GroundAndSurface();
-
-        //Initialize it and add it to the world
-        Chunk chunk = chunkOBJ.AddComponent<Chunk>() as Chunk;
-        gas.groundChunk = chunk;
-
-        //Create a water surface chunk
-        chunkPos.y = CHUNK_HEIGHT * 4.0f; //We want the water surface to be high up
-        GameObject waterChunkOBJ = Instantiate(chunkPrefab);
-        waterChunkOBJ.transform.parent = chunkOBJ.transform;
-        waterChunkOBJ.transform.position = chunkPos;
-        waterChunkOBJ.transform.localScale = Vector3.one;
-        waterChunkOBJ.name = "Water Chunk " + (int)coord.x + "x" + (int)coord.y;
-
-        //Initialize the water chunk and add it to the world
-        Chunk waterChunk = waterChunkOBJ.AddComponent<Chunk>() as Chunk;
-        gas.waterSurfaceChunk = waterChunk;
-        chunks.Add(coord, gas);
-
-        float[,] groundHeightMap = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH, heightCurve);
-        float[,] surfaceHeightMap = Noise.GenerateWaterMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, coord * CHUNK_WIDTH);//Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, coord * CHUNK_WIDTH, heightCurve, true);
-
-        gas.groundChunk.Init(coord, groundHeightMap);
-        gas.waterSurfaceChunk.Init(coord, surfaceHeightMap, true);
+        lock(chunkThreadQueue)
+        {
+            chunkThreadQueue.Enqueue(new MapThreadInfo<ChunkData>(callback, chunkData));
+        }
     }
 
-    private void UpdateVisibleChunks()
+    public void RequestMeshData(ChunkData chunkData, Action<MeshData> callback)
+    {
+        ThreadStart threadStart = delegate {
+            MeshDataThread(chunkData, callback);
+        };
+
+        new Thread(threadStart).Start();
+    }
+
+    private void MeshDataThread(ChunkData chunkData, Action<MeshData> callback)
+    {
+        MeshData meshData = MeshGenerator.GenerateMesh(chunkData.heightMap, chunkData.textureMap, terrainTypes, chunkData.isWater);
+        lock (meshThreadQueue)
+        {
+            meshThreadQueue.Enqueue(new MapThreadInfo<MeshData>(callback, meshData));
+        }
+    }
+
+    struct MapThreadInfo<T>
+    {
+        public readonly Action<T> callback;
+        public readonly T param;
+
+        public MapThreadInfo(Action<T> callbackT, T parameter)
+        {
+            callback = callbackT;
+            param = parameter;
+        }
+
+    }
+
+    private void UpdateWaterChunks()
+    {
+        for (int i = 0; i < chunksVisibleLastFrame.Count; i++)
+        {
+            if (waterChunks.ContainsValue(chunksVisibleLastFrame[i]))
+            {
+                chunksVisibleLastFrame[i].UpdateChunk();
+            }
+        }
+    }
+
+    private ChunkData GenerateChunkData(bool isWater = false)
+    {
+        float[,] noise;
+
+        if (isWater)
+        {
+            noise = Noise.GenerateWaterMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, offset, curTime);
+        }
+        else
+        {
+            noise = Noise.GenerateNoiseMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, octaves, persistance, lacunarity, offset, heightCurve);
+        }
+
+        return new ChunkData(noise, isWater);
+    }
+
+    private void UpdateVisibleChunks(bool initialLoad = false)
     {
         //Get the index of the current chunk the viewer is on
         int curChunkIndexX = Mathf.RoundToInt(viewerPosition.x / CHUNK_WIDTH);
@@ -144,7 +168,7 @@ public class ChunkManager : MonoBehaviour
 
         Vector2 curChunk = new Vector2(curChunkIndexX, curChunkIndexY);
 
-        if (curChunk != playerChunkCoords)
+        if (curChunk != playerChunkCoords || initialLoad)
         {
             playerChunkCoords = curChunk;
 
@@ -166,8 +190,10 @@ public class ChunkManager : MonoBehaviour
 
                     if (chunks.ContainsKey(viewedChunkIndex)) //If there is a chunk at this index
                     {
-                        chunks[viewedChunkIndex].groundChunk.Show();
-                        chunksVisibleLastFrame.Add(chunks[viewedChunkIndex].groundChunk); //Add it to our list of currently viewable chunks
+                        chunks[viewedChunkIndex].Show();
+                        waterChunks[viewedChunkIndex].Show();
+                        chunksVisibleLastFrame.Add(chunks[viewedChunkIndex]); //Add it to our list of currently viewable chunks
+                        chunksVisibleLastFrame.Add(waterChunks[viewedChunkIndex]); //Add it to our list of currently viewable chunks
                     }
                     else //If there isn't a chunk at this index
                     {
@@ -178,55 +204,17 @@ public class ChunkManager : MonoBehaviour
 
             for (int i = 0; i < newChunks.Count; i++)
             {
-                LoadChunk(newChunks[i]);
-                chunksVisibleLastFrame.Add(chunks[newChunks[i]].groundChunk); //Add it to our list of currently viewable chunks
-            }
+                offset = newChunks[i] * CHUNK_WIDTH;
 
-            for (int i = 0; i < newChunks.Count; i++)
-            {
-                chunks[newChunks[i]].groundChunk.CreateChunk();
-                chunks[newChunks[i]].waterSurfaceChunk.CreateChunk();
-            }
+                chunks.Add(newChunks[i], new Chunk(newChunks[i], transform, terrainMaterial));
+                chunksVisibleLastFrame.Add(chunks[newChunks[i]]);
+                chunksVisibleLastFrame[chunksVisibleLastFrame.Count - 1].Show();
 
-            for (int i = 0; i < newChunks.Count; i++)
-            {
-                chunks[newChunks[i]].groundChunk.CreateMesh();
-                chunks[newChunks[i]].waterSurfaceChunk.CreateMesh();
-            }
-        }        
-    }
-
-    private void UpdateWaterChunks()
-    {
-        foreach (KeyValuePair<Vector2, GroundAndSurface> kvp in chunks)
-        {
-            kvp.Value.waterSurfaceChunk.UpdateChunk(Noise.GenerateWaterMap(CHUNK_WIDTH, CHUNK_WIDTH, seed, noiseScale, kvp.Key * CHUNK_WIDTH));
-        }
-        
-        foreach (KeyValuePair<Vector2, GroundAndSurface> kvp in chunks)
-        {
-            kvp.Value.waterSurfaceChunk.CreateMesh();
-        }
-    }
-
-    public float[,] GetChunkHeightMap(Vector3 coord, Vector3 dir, bool isWater = false)
-    {
-        Vector3 chunk = coord + dir;
-        chunk.y = 0.0f;
-        Vector2 chunkCoord = new Vector2(chunk.x, chunk.z);
-        float[,] noise = new float[CHUNK_WIDTH, CHUNK_WIDTH];
-        if (chunks.ContainsKey(chunkCoord))
-        {
-            if (isWater)
-            {
-                noise = chunks[chunkCoord].waterSurfaceChunk.noise;
-            }
-            else
-            {
-                noise = chunks[chunkCoord].groundChunk.noise;
+                waterChunks.Add(newChunks[i], new Chunk(newChunks[i], transform, waterMaterial, true));
+                chunksVisibleLastFrame.Add(waterChunks[newChunks[i]]);
+                chunksVisibleLastFrame[chunksVisibleLastFrame.Count - 1].Show();
             }
         }
-        return noise;
     }
 
     public byte GetTerrainType(int height, bool isWater = false)
@@ -235,10 +223,12 @@ public class ChunkManager : MonoBehaviour
 
         if (isWater)
         {
-            if (height >= WATER_CHUNK_HEIGHT - 1)
+            /*
+            if (height >= WATER_CHUNK_HEIGHT - 2)
             {
                 return 6;
             }
+            */
             return 5;
         }
 
@@ -246,7 +236,7 @@ public class ChunkManager : MonoBehaviour
 
         for (int i = 0; i < terrainTypes.Count; i++)
         {
-            if (fHeight <= terrainTypes[i].height)
+            if (fHeight >= terrainTypes[i].height)
             {
                 return (byte)i;
             }
@@ -293,9 +283,43 @@ public class ChunkManager : MonoBehaviour
         }
     }
 
-    struct GroundAndSurface
+    public void PopulateTextureMap(ChunkData data, bool isWater = false)
     {
-        public Chunk groundChunk;
-        public Chunk waterSurfaceChunk;
+        for (int x = 0; x < CHUNK_WIDTH; x++)
+        {
+            for (int z = 0; z < CHUNK_WIDTH; z++)
+            {
+                for (int y = 0; y < CHUNK_HEIGHT; y++)
+                {
+                    data.textureMap[x, y, z] = GetTerrainType(y, isWater);
+                }
+            }
+        }
+    }
+
+}
+
+public struct ChunkData
+{
+    public readonly float[,] heightMap;
+    public readonly byte[,,] textureMap;
+    public readonly bool isWater;
+
+    public ChunkData(float[,] noise, bool water)
+    {
+        heightMap = noise;
+        isWater = water;
+        textureMap = new byte[ChunkManager.CHUNK_WIDTH, ChunkManager.CHUNK_HEIGHT, ChunkManager.CHUNK_WIDTH];
+
+        for (int x = 0; x < ChunkManager.CHUNK_WIDTH; x++)
+        {
+            for (int z = 0; z < ChunkManager.CHUNK_WIDTH; z++)
+            {
+                for (int y = 0; y < ChunkManager.CHUNK_HEIGHT; y++)
+                {
+                    textureMap[x, y, z] = 0;
+                }
+            }
+        }
     }
 }

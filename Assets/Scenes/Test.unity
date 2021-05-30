@@ -220,84 +220,86 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   chunkPrefab: {fileID: 6921005643443236879, guid: 7218052da71546a4f94e1d31f2feeca2, type: 3}
   terrainTypes:
-  - name: SeaFloor
-    height: 0.05
-    color: {r: 0, g: 0, b: 0, a: 0}
-    transparency: 1
-    backFaceTexture: 3
-    frontFaceTexture: 3
-    topFaceTexture: 3
-    botFaceTexture: 3
-    leftFaceTexture: 3
-    rightFaceTexture: 3
-  - name: Bottom
-    height: 0.2
-    color: {r: 0.3018868, g: 0.25232458, b: 0.1723033, a: 0}
-    transparency: 1
-    backFaceTexture: 2
-    frontFaceTexture: 2
-    topFaceTexture: 2
-    botFaceTexture: 2
-    leftFaceTexture: 2
-    rightFaceTexture: 2
-  - name: Depths
-    height: 0.35
-    color: {r: 0.6603774, g: 0.49987796, b: 0.14017446, a: 0}
-    transparency: 1
-    backFaceTexture: 1
-    frontFaceTexture: 1
-    topFaceTexture: 1
-    botFaceTexture: 1
-    leftFaceTexture: 1
-    rightFaceTexture: 1
-  - name: BaseSand
-    height: 0.7
-    color: {r: 0.9150943, g: 0.8723328, b: 0.617257, a: 0}
-    transparency: 1
-    backFaceTexture: 0
-    frontFaceTexture: 0
-    topFaceTexture: 0
-    botFaceTexture: 0
-    leftFaceTexture: 0
-    rightFaceTexture: 0
   - name: Grass
-    height: 1
-    color: {r: 0.32003558, g: 1, b: 0, a: 0}
-    transparency: 1
+    height: 0.8
+    color: {r: 0, g: 1, b: 0.12460303, a: 0}
+    transparency: 0
     backFaceTexture: 5
     frontFaceTexture: 5
     topFaceTexture: 4
     botFaceTexture: 6
     leftFaceTexture: 5
     rightFaceTexture: 5
-  - name: WaterSurfaceEdge
-    height: 2
-    color: {r: 1, g: 1, b: 1, a: 0}
-    transparency: 0.5
-    backFaceTexture: 8
-    frontFaceTexture: 8
-    topFaceTexture: 7
-    botFaceTexture: 7
-    leftFaceTexture: 8
-    rightFaceTexture: 8
-  - name: WaterSurface
-    height: 2
-    color: {r: 0, g: 0.9073796, b: 1, a: 0}
-    transparency: 0.5
+  - name: Sandy
+    height: 0.6
+    color: {r: 0.9716981, g: 0.92417663, b: 0.637104, a: 0}
+    transparency: 0
+    backFaceTexture: 0
+    frontFaceTexture: 0
+    topFaceTexture: 0
+    botFaceTexture: 0
+    leftFaceTexture: 0
+    rightFaceTexture: 0
+  - name: Mid
+    height: 0.4
+    color: {r: 1, g: 0.6517962, b: 0, a: 0}
+    transparency: 0
+    backFaceTexture: 1
+    frontFaceTexture: 1
+    topFaceTexture: 1
+    botFaceTexture: 1
+    leftFaceTexture: 1
+    rightFaceTexture: 1
+  - name: Lower
+    height: 0.2
+    color: {r: 0.51461554, g: 0, b: 1, a: 0}
+    transparency: 0
+    backFaceTexture: 2
+    frontFaceTexture: 2
+    topFaceTexture: 2
+    botFaceTexture: 2
+    leftFaceTexture: 2
+    rightFaceTexture: 2
+  - name: Bottom
+    height: 0
+    color: {r: 0, g: 0, b: 0, a: 0}
+    transparency: 0
+    backFaceTexture: 3
+    frontFaceTexture: 3
+    topFaceTexture: 3
+    botFaceTexture: 3
+    leftFaceTexture: 3
+    rightFaceTexture: 3
+  - name: Water
+    height: 10
+    color: {r: 0, g: 0.9388051, b: 1, a: 0}
+    transparency: 0
     backFaceTexture: 7
     frontFaceTexture: 7
     topFaceTexture: 7
     botFaceTexture: 7
     leftFaceTexture: 7
     rightFaceTexture: 7
+  - name: Water Edge
+    height: 10
+    color: {r: 1, g: 1, b: 1, a: 0}
+    transparency: 0
+    backFaceTexture: 8
+    frontFaceTexture: 8
+    topFaceTexture: 8
+    botFaceTexture: 8
+    leftFaceTexture: 8
+    rightFaceTexture: 8
   spawn: {x: 0, y: 0, z: 0}
+  terrainMaterial: {fileID: 2100000, guid: 1bf608920549fef4eb2eaf7f4e6b4dfa, type: 2}
+  waterMaterial: {fileID: 2100000, guid: 1bf608920549fef4eb2eaf7f4e6b4dfa, type: 2}
   viewer: {fileID: 1393924789}
-  noiseScale: 10
-  octaves: 4
-  persistance: 1
-  lacunarity: 1
+  noiseScale: 15
+  octaves: 2
+  persistance: 0.406
+  lacunarity: 0
   seed: 234234
-  offset: {x: 1, y: 5}
+  offset: {x: 0, y: 0}
   heightCurve:
     serializedVersion: 2
     m_Curve:
@@ -311,23 +313,23 @@ MonoBehaviour:
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
-      time: 0.62327176
-      value: 0.5056598
-      inSlope: 0.38440508
-      outSlope: 0.38440508
+      time: 0.49534208
+      value: 0.6306598
+      inSlope: 1.1792988
+      outSlope: 1.1792988
       tangentMode: 0
       weightedMode: 0
       inWeight: 0.33333334
-      outWeight: 0.25636762
+      outWeight: 0.21857443
     - serializedVersion: 3
-      time: 0.8733026
-      value: 0.7934241
-      inSlope: 1.3774226
-      outSlope: 1.3774226
+      time: 0.66248715
+      value: 0.8405967
+      inSlope: 0.366056
+      outSlope: 0.366056
       tangentMode: 0
       weightedMode: 0
       inWeight: 0.33333334
-      outWeight: 0.51390934
+      outWeight: 0.35881206
     - serializedVersion: 3
       time: 1
       value: 1
@@ -5732,7 +5734,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1206210966
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5942,7 +5944,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1393924782}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 25.39, z: -5.4}
+  m_LocalPosition: {x: 0, y: 25.39, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 1493780760}
@@ -6120,13 +6122,13 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1805598982}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071068}
   m_LocalPosition: {x: 0, y: 0.42, z: 8.34}
   m_LocalScale: {x: 10, y: 1, z: 2}
   m_Children: []
   m_Father: {fileID: 1493780760}
   m_RootOrder: 1
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
 --- !u!23 &1805598985
 MeshRenderer:
   m_ObjectHideFlags: 0
